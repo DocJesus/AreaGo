@@ -19,21 +19,17 @@ limitations under the License.
 package main
 
 import (
-	"expvar"
 	"flag"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 )
 
 // Command-line flags.
 var (
-	httpAddr   = flag.String("http", ":6060", "Listen address")
-	pollPeriod = flag.Duration("poll", 5*time.Second, "Poll period")
-	version    = flag.String("version", "1.8", "Go version")
+	httpAddr = flag.String("http", ":6060", "Listen address")
 )
 
 const baseChangeURL = "https://go.googlesource.com/go/+/"
@@ -45,76 +41,27 @@ type timeHandler struct {
 func main() {
 
 	flag.Parse()
-	changeURL := fmt.Sprintf("%sgo%s", baseChangeURL, *version)
 
 	mux := http.NewServeMux()
-	th := &timeHandler{format: time.RFC1123}
-	mux.Handle("/time", th)
-	mux.Handle("/", NewServer(*version, changeURL, *pollPeriod))
-	mux.Handle("/ping", http.HandlerFunc(ServeHTTP))
+	//th := &timeHandler{format: time.RFC1123}
+
+	//mux.Handle("/time", th)
+	mux.Handle("/", http.HandlerFunc(ServeHTTP))
+	//mux.Handle("/ping", http.HandlerFunc(ServeHTTP))
+
+	mux.Handle("/ping", http.HandlerFunc(RequestHandler))
 
 	//http.Handle("/", NewServer(*version, changeURL, *pollPeriod))
 	//http.Handle("/", ServeHTTP)
 	log.Fatal(http.ListenAndServe(*httpAddr, mux))
 }
 
-// Exported variables for monitoring the server.
-// These are exported via HTTP as a JSON object at /debug/vars.
-var (
-	hitCount       = expvar.NewInt("hitCount")
-	pollCount      = expvar.NewInt("pollCount")
-	pollError      = expvar.NewString("pollError")
-	pollErrorCount = expvar.NewInt("pollErrorCount")
-)
-
-// Server implements the outyet server.
-// It serves the user interface (it's an http.Handler)
-// and polls the remote repository for changes.
-type Server struct {
-	version string
-	url     string
-	period  time.Duration
-
-	mu  sync.RWMutex // protects the yes variable
-	yes bool
-}
-
-// NewServer returns an initialized outyet server.
-func NewServer(version, url string, period time.Duration) *Server {
-	s := &Server{version: version, url: url, period: period}
-
-	//goroutine
-	//go s.poll()
-	return s
-}
-
-// Hooks that may be overridden for integration tests.
-var (
-	pollSleep = time.Sleep
-	pollDone  = func() {}
-)
-
-// poll polls the change URL for the specified period until the tag exists.
-// Then it sets the Server's yes field true and exits.
-func (s *Server) poll() {
-	for !isTagged(s.url) {
-		pollSleep(s.period)
-	}
-	s.mu.Lock()
-	s.yes = true
-	s.mu.Unlock()
-	pollDone()
-}
-
 // isTagged makes an HTTP HEAD request to the given URL and reports whether it
 // returned a 200 OK response.
 func isTagged(url string) bool {
-	pollCount.Add(1)
 	r, err := http.Head(url)
 	if err != nil {
 		log.Print(err)
-		pollError.Set(err.Error())
-		pollErrorCount.Add(1)
 		return false
 	}
 	return r.StatusCode == http.StatusOK
@@ -124,31 +71,54 @@ func isTagged(url string) bool {
 // /!\ trouver une manière plus propore de le faire
 func EnableCORS(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
 // ServeHTTP implements the HTTP user interface.
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hitCount.Add(1)
+func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+
 	err := tmpl.Execute(w, nil)
 	if err != nil {
 		log.Print(err)
 	}
 }
 
-// ServeHTTP répond Pong à une deande /ping
-func ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	/* 	hitCount.Add(1)
-	   	err := tmpl.Execute(w, nil)
-	   	if err != nil {
-	   		log.Print(err)
-		   } */
+// PingPongHandler répond Pong à une deande /ping
+func PingPongHandler(w http.ResponseWriter, r *http.Request) {
 	EnableCORS(&w)
 	w.Write([]byte("Pong"))
+}
 
+// RequestHandler gère toute les requêtes GET et Post pour le moment /ping
+func RequestHandler(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+
+	if r.URL.Path != "/ping" {
+		http.Error(w, "404 not found.", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+		//http.ServeFile(w, r, "form.html")
+		w.Write([]byte("Stonks"))
+		fmt.Fprintf(w, "stronks")
+	case "POST":
+		// Call ParseForm() to parse the raw query and update r.PostForm and r.Form.
+		fmt.Fprintf(w, "Post from website! r.PostFrom = %v\n", r.PostForm)
+	case "OPTIONS":
+		fmt.Fprintf(w, "Options command")
+	default:
+		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
+	}
 }
 
 //ServeHTTP requête /time
 func (th *timeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+
 	tm := time.Now().Format(th.format)
 	data := struct {
 		TIME string

@@ -29,14 +29,18 @@ export default {
   },
 
   created() {
-      this.$http.get('http://localhost:8080/ping').then(function(data){
+      this.$http.post('http://localhost:8080/ping').then(function(data){
+          console.log(data)
+      })
+            this.$http.get('http://localhost:8080/ping').then(function(data){
           console.log(data)
           this.blogs = data.body.slice(0, 10)
       })
-  /*     this.$http.get('https://jsonplaceholder.typicode.com/posts').then(function(data){
+
+       /*this.$http.get('https://jsonplaceholder.typicode.com/posts').then(function(data){
           console.log(data)
           this.blogs = data.body.slice(0, 10)
-      }) */}
+      })*/ }
 }
 </script>
 
