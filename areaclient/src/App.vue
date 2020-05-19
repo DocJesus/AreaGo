@@ -3,18 +3,21 @@
     <img src="./assets/logo.png">
     <!--<HelloWorld/>-->
     <Blogs/>
+    <Auth/>
   </div>
 </template>
 
 <script>
 import HelloWorld from './components/HelloWorld'
 import Blogs from './components/showBlogs'
+import Auth from './components/Authentification'
 
 export default {
   name: 'App',
   components: {
     HelloWorld,
-    Blogs
+    Blogs,
+    Auth
   }
 }
 </script>

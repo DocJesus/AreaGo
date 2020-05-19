@@ -1,5 +1,4 @@
 /*
-Copyright 2014 Google Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,41 +18,114 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"time"
+
+	"github.com/mux"
 )
 
 // Command-line flags.
-var (
-	httpAddr = flag.String("http", ":6060", "Listen address")
-)
+var httpAddr = flag.String("http", ":6060", "Listen address")
 
 const baseChangeURL = "https://go.googlesource.com/go/+/"
 
-type timeHandler struct {
-	format string
+type Action struct {
+	id          int
+	name        string
+	slug        string
+	description string
 }
+
+var actions = []Action{
+	Action{1, "Facebook", "facebook", "tu te co à facebook"},
+	Action{2, "Gmail", "gmail", "tu te co à gmail"},
+	Action{3, "Outlook", "outlook", "tu te co à tes mails"},
+}
+
+// NotImplemented will simply return the message "Not Implemented"
+var NotImplemented = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Not Implemented"))
+})
+
+// BasicPage implemente la page de base du serveur
+var BasicPage = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+
+	err := tmpl.Execute(w, nil)
+	if err != nil {
+		log.Print(err)
+	}
+})
+
+// BasicPing implemente la réponse pong quand on appel /ping
+var BasicPing = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+	w.Write([]byte("Pong"))
+})
+
+// List renvoie les actions du serveur
+var List = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	payload, _ := json.Marshal(actions)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(payload))
+})
+
+// FeedBack gère les requêtes post vers /actions/{slug}/feedback
+var FeedBack = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+	r.ParseForm()
+	fmt.Fprintf(w, "Post from website! Param = ")
+
+	var currentAct Action
+	toto := mux.Vars(r)
+	slug := toto["slug"]
+
+	for _, p := range actions {
+		if p.slug == slug {
+			currentAct = p
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if currentAct.slug != "" {
+		payload, _ := json.Marshal(currentAct)
+		w.Write([]byte(payload))
+	} else {
+		w.Write([]byte("Product Not Found"))
+	}
+})
 
 func main() {
 
 	flag.Parse()
 
-	mux := http.NewServeMux()
-	//th := &timeHandler{format: time.RFC1123}
+	//mux := http.NewServeMux()
 
-	//mux.Handle("/time", th)
-	mux.Handle("/", http.HandlerFunc(ServeHTTP))
-	//mux.Handle("/ping", http.HandlerFunc(ServeHTTP))
+	r := mux.NewRouter()
 
-	mux.Handle("/ping", http.HandlerFunc(RequestHandler))
+	r.Handle("/status", NotImplemented).Methods("GET")
 
-	//http.Handle("/", NewServer(*version, changeURL, *pollPeriod))
-	//http.Handle("/", ServeHTTP)
-	log.Fatal(http.ListenAndServe(*httpAddr, mux))
+	//interface de base
+	r.Handle("/", BasicPage)
+
+	//envoie les actions du serveur
+	r.Handle("/actions", List).Methods("GET")
+
+	//modifie les actions du serveur
+	r.Handle("/actions/{slug}/feedback", FeedBack).Methods("POST")
+
+	//répond par un simple pong à un call à "ping"
+	//r.Handle("/ping", BasicPing)
+
+	//répond aux requet post et get sur /ping
+	//r.Handle("/ping", http.HandlerFunc(RequestHandler))
+
+	log.Fatal(http.ListenAndServe(*httpAddr, r))
 }
 
 // isTagged makes an HTTP HEAD request to the given URL and reports whether it
@@ -75,59 +147,25 @@ func EnableCORS(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
-// ServeHTTP implements the HTTP user interface.
-func ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	EnableCORS(&w)
-
-	err := tmpl.Execute(w, nil)
-	if err != nil {
-		log.Print(err)
-	}
-}
-
-// PingPongHandler répond Pong à une deande /ping
-func PingPongHandler(w http.ResponseWriter, r *http.Request) {
-	EnableCORS(&w)
-	w.Write([]byte("Pong"))
-}
-
 // RequestHandler gère toute les requêtes GET et Post pour le moment /ping
 func RequestHandler(w http.ResponseWriter, r *http.Request) {
 	EnableCORS(&w)
 
-	if r.URL.Path != "/ping" {
-		http.Error(w, "404 not found.", http.StatusNotFound)
-		return
-	}
-
 	switch r.Method {
 	case "GET":
-		//http.ServeFile(w, r, "form.html")
-		w.Write([]byte("Stonks"))
-		fmt.Fprintf(w, "stronks")
+		payload, _ := json.Marshal(actions)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(payload))
 	case "POST":
 		// Call ParseForm() to parse the raw query and update r.PostForm and r.Form.
-		fmt.Fprintf(w, "Post from website! r.PostFrom = %v\n", r.PostForm)
+		r.ParseForm()
+		fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("user"))
+		fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("passwd"))
 	case "OPTIONS":
 		fmt.Fprintf(w, "Options command")
 	default:
 		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
-	}
-}
-
-//ServeHTTP requête /time
-func (th *timeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	EnableCORS(&w)
-
-	tm := time.Now().Format(th.format)
-	data := struct {
-		TIME string
-	}{
-		tm,
-	}
-	err := tmpl2.Execute(w, data)
-	if err != nil {
-		log.Print(err)
 	}
 }
 
@@ -137,15 +175,6 @@ var tmpl = template.Must(template.New("tmpl").Parse(`
 	<h2>Welcome to my humble server</h2>
 	<h1>
 		I will try to send "Pong" if someone send me "Ping"
-	</h1>
-</center></body></html>
-`))
-
-var tmpl2 = template.Must(template.New("tmpl2").Parse(`
-<!DOCTYPE html><html><body><center>
-	<h2>Welcome to my humble server</h2>
-	<h1>
-		Time Today is {{.TIME}}
 	</h1>
 </center></body></html>
 `))
