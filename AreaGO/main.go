@@ -24,6 +24,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/mux"
 )
@@ -126,6 +127,7 @@ func main() {
 	//r.Handle("/ping", http.HandlerFunc(RequestHandler))
 
 	log.Fatal(http.ListenAndServe(*httpAddr, r))
+	http.ListenAndServe(":3000", handlers.LoggingHandler(os.Stdout, r))
 }
 
 // isTagged makes an HTTP HEAD request to the given URL and reports whether it
