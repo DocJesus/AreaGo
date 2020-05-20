@@ -25,7 +25,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	jwtmiddleware "github.com/auth0/go-jwt-middleware"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/handlers"
 	"github.com/mux"
 )
 
@@ -101,6 +105,37 @@ var FeedBack = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	}
 })
 
+var mySigningKey = []byte("Passwd")
+
+// Token renvoie un token sur la route get-token
+var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+
+	r.ParseForm()
+	//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("user"))
+	//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("passwd"))
+
+	token := jwt.New(jwt.SigningMethodHS256)
+
+	claims := token.Claims.(jwt.MapClaims)
+
+	claims["admin"] = true
+	claims["name"] = "Simon RAGUIN"
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+
+	tokenString, _ := token.SignedString(mySigningKey)
+
+	w.Write([]byte(tokenString))
+})
+
+// middleware pour check la clef de validation de l'User
+var Middleware = jwtmiddleware.New(jwtmiddleware.Options{
+	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+		return mySigningKey, nil
+	},
+	SigningMethod: jwt.SigningMethodHS256,
+})
+
 func main() {
 
 	flag.Parse()
@@ -112,22 +147,28 @@ func main() {
 	r.Handle("/status", NotImplemented).Methods("GET")
 
 	//interface de base
-	r.Handle("/", BasicPage)
+	r.Handle("/", Middleware.Handler(BasicPage))
 
-	//envoie les actions du serveur
-	r.Handle("/actions", List).Methods("GET")
+	//envoie les "actions" du serveur
+	r.Handle("/actions", Middleware.Handler(List)).Methods("GET")
 
-	//modifie les actions du serveur
-	r.Handle("/actions/{slug}/feedback", FeedBack).Methods("POST")
+	//modifie les "	actions" du serveur
+	r.Handle("/actions/{slug}/feedback", Middleware.Handler(FeedBack)).Methods("POST")
+
+	//donne un token à l'utilisateur --> route de Login
+	r.Handle("/login", Token).Methods("POST")
+
+	//enregistre un nouvel utilisateur --> faire la DB
+	r.Handle("/register", NotImplemented).Methods("POST")
 
 	//répond par un simple pong à un call à "ping"
 	//r.Handle("/ping", BasicPing)
 
 	//répond aux requet post et get sur /ping
-	//r.Handle("/ping", http.HandlerFunc(RequestHandler))
+	r.Handle("/ping", http.HandlerFunc(RequestHandler))
 
-	log.Fatal(http.ListenAndServe(*httpAddr, r))
-	http.ListenAndServe(":3000", handlers.LoggingHandler(os.Stdout, r))
+	//log.Fatal(http.ListenAndServe(*httpAddr, r))
+	http.ListenAndServe(":6060", handlers.LoggingHandler(os.Stdout, r))
 }
 
 // isTagged makes an HTTP HEAD request to the given URL and reports whether it
@@ -151,7 +192,7 @@ func EnableCORS(w *http.ResponseWriter) {
 
 // RequestHandler gère toute les requêtes GET et Post pour le moment /ping
 func RequestHandler(w http.ResponseWriter, r *http.Request) {
-	EnableCORS(&w)
+	//EnableCORS(&w)
 
 	switch r.Method {
 	case "GET":

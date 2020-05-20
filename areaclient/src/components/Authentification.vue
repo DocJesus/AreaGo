@@ -1,9 +1,14 @@
 <template>
     <div class="Auth">
+        <h1>Client AreaGO</h1>
+        <p>Login obbligatoire lol</p>
         <input v-model="user" placeholder="Username">
         <input v-model="passwd" placeholder="Passwd">
-
-        <button href="#" v-on:click="Send(user, passwd)">Send</button>
+        <button href="#" v-on:click="Login()">Send</button>
+        <p>Pas de compte ? Register ici</p>
+        <input v-model="newUser" placeholder="Username">
+        <input v-model="newPasswd" placeholder="Passwd">
+        <button href="#" v-on:click="Register()">Send</button>
     </div>
 </template>
 
@@ -20,7 +25,10 @@ export default {
 
     data() {
         return {
-
+            user: '',
+            passwd: '',
+            newUser: '',
+            newPasswd: ''
         }
     },
 
@@ -28,13 +36,17 @@ export default {
   },
 
   methods: {
-    Send: function (user, passwd) {
+    Login: function () {
         //faire la requête send au serveur et 
         // voir comment lui envoyer des params et les lire dessus
-        console.log("event Send avec comme param " + user + " " + passwd)
-        this.$http.post('http://localhost:8080/ping', {user: user, passwd: passwd}).then(function(data){
+        console.log("event Login avec comme param " + this.user + " " + this.passwd)
+        this.$http.post('http://localhost:6060/login', {user: this.user, passwd: this.passwd}).then(function(data){
           console.log(data)
       })
+    },
+
+    Register: function() {
+        console.log("event Login avec comme param " + this.newUser + " " + this.newPasswd)
     }
   }
 

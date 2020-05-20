@@ -2,7 +2,7 @@
   <div id="app">
     <img src="./assets/logo.png">
     <!--<HelloWorld/>-->
-    <Blogs/>
+    <!--<Blogs/>-->
     <Auth/>
   </div>
 </template>
