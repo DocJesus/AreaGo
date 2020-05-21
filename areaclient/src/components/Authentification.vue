@@ -46,10 +46,13 @@ export default {
     },
 
     Register: function() {
-        console.log("event Login avec comme param " + this.newUser + " " + this.newPasswd)
-    }
+        console.log("event Register avec comme param " + this.newUser + " " + this.newPasswd)
+        this.$http.post('http://localhost:6060/register', {newUser: this.newUser, newPasswd: this.newPasswd}).then(function(data){
+          console.log(data)
+      })
   }
-
+  
+  }
 }
 </script>
 

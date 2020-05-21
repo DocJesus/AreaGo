@@ -18,13 +18,16 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
@@ -107,7 +110,7 @@ var FeedBack = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 var mySigningKey = []byte("Passwd")
 
-// Token renvoie un token sur la route get-token
+// Token renvoie un token sur la route get-token, après avoir login l'user au travers de la DB
 var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	EnableCORS(&w)
 
@@ -123,12 +126,55 @@ var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	claims["name"] = "Simon RAGUIN"
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
-	tokenString, _ := token.SignedString(mySigningKey)
+	//fetch l'user dans la DB
+	resp, err := http.Get("http://localhost:4242/users/user?user=" + r.Form.Get("user"))
 
-	w.Write([]byte(tokenString))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	//check si l'user match avec les infos envoyés
+	str := strings.Fields(string(body))
+	if str[1] == r.Form.Get("user") && str[2] == r.Form.Get("passwd") {
+		//création et envoie du token
+		tokenString, _ := token.SignedString(mySigningKey)
+		w.Write([]byte(tokenString))
+	} else {
+		fmt.Fprintf(w, "compte non valide")
+	}
+
+	fmt.Fprintf(w, "body = %s", body)
+
 })
 
-// middleware pour check la clef de validation de l'User
+// Register va;......Register, un nouvel utilisateur
+var Register = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	EnableCORS(&w)
+	r.ParseForm()
+
+	//envoie dans la db
+
+	name := r.Form.Get("newUser")
+	passwd := r.Form.Get("newPasswd")
+
+	values := map[string]string{"newUser": name, "newPasswd": passwd}
+	jsonValue, _ := json.Marshal(values)
+	resp, err := http.Post("http://localhost:4242/users/newUser", "application/json", bytes.NewBuffer(jsonValue))
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Fprintf(w, "body = %s, compte créé", body)
+
+})
+
+// Middleware pour check la clef de validation de l'User
 var Middleware = jwtmiddleware.New(jwtmiddleware.Options{
 	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 		return mySigningKey, nil
@@ -159,7 +205,7 @@ func main() {
 	r.Handle("/login", Token).Methods("POST")
 
 	//enregistre un nouvel utilisateur --> faire la DB
-	r.Handle("/register", NotImplemented).Methods("POST")
+	r.Handle("/register", Register).Methods("POST")
 
 	//répond par un simple pong à un call à "ping"
 	//r.Handle("/ping", BasicPing)
