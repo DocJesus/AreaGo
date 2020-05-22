@@ -160,8 +160,11 @@ var Register = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	name := r.Form.Get("newUser")
 	passwd := r.Form.Get("newPasswd")
 
-	values := map[string]string{"newUser": name, "newPasswd": passwd}
+	values := map[string]string{"id": "0", "name": name, "passwd": passwd}
 	jsonValue, _ := json.Marshal(values)
+
+	//log.Fatalln(bytes.NewBuffer(jsonValue))
+
 	resp, err := http.Post("http://localhost:4242/users/newUser", "application/json", bytes.NewBuffer(jsonValue))
 
 	if err != nil {
@@ -249,8 +252,8 @@ func RequestHandler(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		// Call ParseForm() to parse the raw query and update r.PostForm and r.Form.
 		r.ParseForm()
-		fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("user"))
-		fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("passwd"))
+		//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("user"))
+		//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("passwd"))
 	case "OPTIONS":
 		fmt.Fprintf(w, "Options command")
 	default:
