@@ -115,11 +115,9 @@ var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	EnableCORS(&w)
 
 	r.ParseForm()
-	//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("user"))
-	//fmt.Fprintf(w, "Post from website! Param = %s\n", r.Form.Get("passwd"))
+	log.Println("body = ", r.Form.Get("user"))
 
 	token := jwt.New(jwt.SigningMethodHS256)
-
 	claims := token.Claims.(jwt.MapClaims)
 
 	claims["admin"] = true
@@ -135,6 +133,7 @@ var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	//fmt.Fprintf(w, "body = %s", body)
 
 	//check si l'user match avec les infos envoyés
 	str := strings.Fields(string(body))
@@ -144,10 +143,9 @@ var Token = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(tokenString))
 	} else {
 		fmt.Fprintf(w, "compte non valide")
+		http.Error(w, http.StatusText(http.StatusInternalServerError),
+			http.StatusInternalServerError)
 	}
-
-	fmt.Fprintf(w, "body = %s", body)
-
 })
 
 // Register va;......Register, un nouvel utilisateur
@@ -204,19 +202,22 @@ func main() {
 	//modifie les "	actions" du serveur
 	r.Handle("/actions/{slug}/feedback", Middleware.Handler(FeedBack)).Methods("POST")
 
-	//donne un token à l'utilisateur --> route de Login
+	//login un utilisateur et lui donne un token
 	r.Handle("/login", Token).Methods("POST")
 
-	//enregistre un nouvel utilisateur --> faire la DB
+	//enregistre un nouvel utilisateur
 	r.Handle("/register", Register).Methods("POST")
 
 	//répond par un simple pong à un call à "ping"
 	//r.Handle("/ping", BasicPing)
-
 	//répond aux requet post et get sur /ping
-	r.Handle("/ping", http.HandlerFunc(RequestHandler))
+	//r.Handle("/ping", http.HandlerFunc(RequestHandler))
 
-	//log.Fatal(http.ListenAndServe(*httpAddr, r))
+	//retourne ping seulement si le gars a un token
+	r.Handle("/ping", Middleware.Handler(BasicPing)).Methods("GET")
+	r.Handle("/Ping", BasicPing).Methods("GET")
+
+	//le serveur écoute sur 6060
 	http.ListenAndServe(":6060", handlers.LoggingHandler(os.Stdout, r))
 }
 

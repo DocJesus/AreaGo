@@ -9,6 +9,12 @@
         <input v-model="newUser" placeholder="Username">
         <input v-model="newPasswd" placeholder="Passwd">
         <button href="#" v-on:click="Register()">Send</button>
+        <div>
+          <button href="#" v-on:click="Ping()">Ping</button>
+        </div>
+        <div>
+          <button href="#" v-on:click="ping()">ping</button>
+        </div>
     </div>
 </template>
 
@@ -28,8 +34,9 @@ export default {
             user: '',
             passwd: '',
             newUser: '',
-            newPasswd: ''
-        }
+            newPasswd: '',
+            token: ''
+            }
     },
 
   components: {
@@ -41,7 +48,9 @@ export default {
         // voir comment lui envoyer des params et les lire dessus
         console.log("event Login avec comme param " + this.user + " " + this.passwd)
         this.$http.post('http://localhost:6060/login', {user: this.user, passwd: this.passwd}).then(function(data){
-          console.log(data)
+          //console.log(data)
+          this.token = data.body;
+          console.log("token = " + this.token)
       })
     },
 
@@ -50,8 +59,30 @@ export default {
         this.$http.post('http://localhost:6060/register', {newUser: this.newUser, newPasswd: this.newPasswd}).then(function(data){
           console.log(data)
       })
-  }
-  
+    },
+
+    /*
+    Ping: function() {
+      this.$http.get('http://localhost:6060/ping', {headers: {
+        Authorization: this.token}
+    }).then(function(data){
+        console.log(this.token)
+        console.log(data)
+      })
+    }
+    */
+   
+      Ping: function() {
+      this.$http.get('http://localhost:6060/Ping').then(function(data){
+        console.log(data)
+      })
+    },
+
+      ping: function() {
+      this.$http.get('http://localhost:6060/ping', {headers: {'Authorization': this.token}}).then(function(data){
+        console.log(data)
+      })
+    }
   }
 }
 </script>
